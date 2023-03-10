@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using InspectorUtils.Runtime;
+using Main.BattleCardSpace;
 using Main.Misc;
 using Main.Other;
 using SurvDI.Application.Interfaces;
@@ -11,38 +12,45 @@ using Random = UnityEngine.Random;
 namespace Main.Crystalls
 {
     [Bind]
-    public class CrystallManager : MonoBehaviour, IInit
+    public class CrystallManager : MonoBehaviour, IPreInit
     {
-        [SerializeField] private int startCountCrystalls;
-        [SerializeField] private CrystallType startType;
-
         [Header("UI")] 
         [SerializeField] private TextMeshProUGUI crystallsCountTxt;
         [SerializeField] private GameObject crystallPrefab;
         [SerializeField] private Transform crystallsParent;
         
-        private readonly List<CrystallType> _crystalls = new();
+        [SerializeField] private List<CrystallType> _crystalls = new();
 
         private PoolMassive _crystallsUI;
         
-        
-        public void Init()
+        public void PreInit()
         {
             _crystallsUI = new PoolMassive(30, crystallsParent, crystallPrefab);
-            for (var i = 0; i < startCountCrystalls; i++)
-            {
-                AddCrystall(startType);
-            }
         }
 
         public void AddCrystall(CrystallType type)
         {
+            if (type == CrystallType.Any || type == CrystallType.Undefined)
+                Debug.LogError("CannotSet:" + type);
             _crystalls.Add(type);
             UpdateUI();
         }
 
         public void RemoveCrystall(CrystallType type)
         {
+            if (type == CrystallType.Any)
+            {
+                var toRemove = _crystalls.FirstOrDefault(s => s != CrystallType.Universal);
+                if (toRemove != CrystallType.Undefined)
+                    type = toRemove;
+                else
+                {
+                    toRemove = _crystalls.FirstOrDefault(s => s == CrystallType.Universal);
+                    if (toRemove != CrystallType.Undefined)
+                        type = toRemove;
+                }
+            }
+            //Debug.Log("ToRemove:" + type);
             if (_crystalls.Contains(type))
                 _crystalls.Remove(type);
             UpdateUI();
@@ -50,9 +58,11 @@ namespace Main.Crystalls
         
         public int GetCountCrystall(CrystallType type)
         {
+            if (type == CrystallType.Any)
+                return _crystalls.Count;
             return _crystalls.Count(s => s == type);
         }
-
+        
         private void UpdateUI()
         {
             _crystalls.Sort();
@@ -83,6 +93,40 @@ namespace Main.Crystalls
         {
             _crystalls.Clear();
             UpdateUI();
+        }
+
+        public void RemoveCrystalls(List<CrystallType> crystalls)
+        {
+            foreach (var crystall in crystalls)
+                RemoveCrystall(crystall);
+        }
+        
+        public bool HasCrystallsForAbility(BattleCardAbility cardAbility)
+        {
+            var has = cardAbility.Cost.Count(abilityCost => 
+                GetCountCrystall(abilityCost.crystallType) >= abilityCost.count ||
+                GetCountCrystall(CrystallType.Universal) >= abilityCost.count);
+            
+            return has == cardAbility.Cost.Length;
+        }
+        public List<CrystallType> SelectCrystalsForAbility(BattleCardAbility cardAbility)
+        {
+            var selected = new List<CrystallType>();
+            foreach (var abilityCost in cardAbility.Cost)
+            {
+                if (GetCountCrystall(abilityCost.crystallType) >= abilityCost.count)
+                {
+                    for (var i = 0; i < abilityCost.count; i++)
+                        selected.Add(abilityCost.crystallType);
+                }
+                else if (GetCountCrystall(CrystallType.Universal) >= abilityCost.count)
+                {
+                    for (var i = 0; i < abilityCost.count; i++)
+                        selected.Add(CrystallType.Universal);
+                }
+            }
+
+            return selected;
         }
     }
 }

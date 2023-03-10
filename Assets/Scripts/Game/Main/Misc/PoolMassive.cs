@@ -57,7 +57,7 @@ namespace Main.Misc
             return free;
         }
 
-        public PoolObjectLocal Get(Vector3 pos)
+        public PoolObjectLocal Get(Vector3 pos = default)
         {
             var free = _all.FirstOrDefault(poolObj =>
                 !poolObj.gameObject.activeInHierarchy); //Получаем пул объект который отключен

@@ -6,5 +6,9 @@ namespace Main.Players
     public class Player : PlayerBase
     {
         public override bool IsPlayer => true;
+        public override void OnMoveStart()
+        {
+            
+        }
     }
 }

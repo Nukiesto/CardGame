@@ -49,18 +49,15 @@ namespace Main
             
             foreach (var battleCard in battleCards)
                 battleCard.SetSelected(false);
-            
-            SetMyCurrentCard(0);
-            SetEnemyCurrentCard(0);
         }
 
-        private void SetMyCurrentCard(int set)
+        public void SetMyCurrentCard(int set)
         {
             MyCards[set].SetSelected(true);
             MyCurrentCard = MyCards[set];
             OnSelectedEvent?.Invoke(MyCurrentCard);
         }
-        private void SetEnemyCurrentCard(int set)
+        public void SetEnemyCurrentCard(int set)
         {
             EnemyCards[set].SetSelected(true);
             EnemyCurrentCard = EnemyCards[set];

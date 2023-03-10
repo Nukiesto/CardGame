@@ -21,6 +21,7 @@ namespace Main.CardInfo
         
         [SerializeField] private CrystallUI crystallUIPrefab;
         [SerializeField] private Transform crystallParent;
+        public AbilityType abilityType;
         
         private PoolMassive _crystalls;
         

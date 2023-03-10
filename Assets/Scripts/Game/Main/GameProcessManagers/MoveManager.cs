@@ -25,9 +25,6 @@ namespace Main.GameProcessManagers
         [Header("Other")]
         [SerializeField] private bool firstPlayer;
 
-        [Inject] private BattleCardManager _battleCardManager;
-
-       
         private GamePhase _currentPhaseType;
         
         public GamePhase CurrentPhase
@@ -61,13 +58,7 @@ namespace Main.GameProcessManagers
             {
                 
             }
-            _battleCardManager.OnNewCardEvent += s =>
-            {
-                s.BattleCardAttack.OnAttackEvent += () =>
-                {
-                    
-                };
-            };
+            
             foreach (var gamePhase in gamePhases)
             {
                 gamePhase.OnCompletedEvent += () =>

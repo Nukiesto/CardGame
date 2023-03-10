@@ -1,6 +1,8 @@
 using Main.Crystalls;
+using Main.Other;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
+using UnityEngine;
 
 namespace Main.GameProcessManagers.GamePhases
 {
@@ -19,7 +21,10 @@ namespace Main.GameProcessManagers.GamePhases
             {
                 IsCompleted = true;
             });
+            
             _crystallManager.Clear();
+            for (var i = 0; i < 8; i++)
+                _crystallManager.AddCrystall(CrystallType.Universal);
         }
 
         public override void OnEnd()

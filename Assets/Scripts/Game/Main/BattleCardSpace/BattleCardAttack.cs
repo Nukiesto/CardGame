@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using DG.Tweening;
 using Main.Abilities;
+using Main.Crystalls;
 using Main.GameProcessManagers;
+using Network;
 using SimpleAsync;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
@@ -20,6 +22,8 @@ namespace Main.BattleCardSpace
         [Inject] private AbilitiesUIManager _abilitiesUIManager;
         [Inject] private BattleCardManager _battleCardManager;
         [Inject] private MoveManager _moveManager;
+        [Inject] private CrystallManager _crystallManager;
+        [Inject] private GameNetworkManager _gameNetworkManager;
         
         private CoRoutine _waitAttack;
         private bool _oneClick;
@@ -31,7 +35,6 @@ namespace Main.BattleCardSpace
             if (battleCard.IsEnemy)
                 return;
             _abilitiesUIManager.OnClickAbilityEvent += s => { _oneClick = !_oneClick; };
-            
         }
         public void Init()
         {
@@ -46,15 +49,29 @@ namespace Main.BattleCardSpace
      
         public void Attack()
         {
-            if (!_oneClick)
+            if (!_oneClick && !battleCard.IsEnemy)
                 return;
-            _oneClick = false;
-            var enemy = _battleCardManager.EnemyCurrentCard;
-            var player = _battleCardManager.MyCurrentCard;
+            var ability = _battleCardManager.MyCurrentCard.SelectedAbility;
+            if (!battleCard.IsEnemy)
+            {
+                if (_crystallManager.HasCrystallsForAbility(ability))
+                    _crystallManager.RemoveCrystalls(_crystallManager.SelectCrystalsForAbility(ability));
+                else
+                    return;
+            }
             
+            _oneClick = false;
+            _gameNetworkManager.CurrentPlayer.Attack(ability.AbilityType);
+        }
+
+        public void AttackAbility(AbilityType ability)
+        {
+            var enemy = battleCard.IsEnemy ? _battleCardManager.MyCurrentCard : _battleCardManager.EnemyCurrentCard;
+
             attackEffect.SetActive(true);
             attackEffect.transform.localPosition = Vector3.zero;
-            
+            Debug.Log("Shot Enemy:" + battleCard.IsEnemy);
+          
             attackEffect.transform
                 .DOMove(enemy.transform.position, time)
                 .SetEase(Ease.OutQuad)

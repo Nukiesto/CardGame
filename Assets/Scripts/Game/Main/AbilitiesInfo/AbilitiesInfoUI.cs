@@ -26,9 +26,7 @@ namespace Main.AbilitiesInfo
         }
 
         [SerializeField] private GameObject ui;
-        [SerializeField] private AbilityUIUnit normal;
-        [SerializeField] private AbilityUIUnit hold;
-        [SerializeField] private AbilityUIUnit ult;
+        [SerializeField] private AbilityUIUnit[] abilities;
         
         [Inject] private AbilitiesUIManager _abilitiesUIManager;
         [Inject] private CardInfoManager _cardInfoManager;
@@ -52,10 +50,10 @@ namespace Main.AbilitiesInfo
                 
                 _opened = s;
                 ui.SetActive(true);
-                
-                normal.SetOpen(false);
-                hold.SetOpen(false);
-                ult.SetOpen(false);
+
+                foreach (var abilityUIUnit in abilities)
+                    abilityUIUnit.SetOpen(false);
+
                 var currentCard = _battleCardManager.MyCurrentCard;
                 _cardInfoManager.SetOpen(false);
                 
@@ -65,22 +63,14 @@ namespace Main.AbilitiesInfo
                     items[i].SetItem(item, item.itemName);
                     items[i].gameObject.SetActive(true);
                 }
-                switch (s)
+
+                foreach (var abilityUIUnit in abilities)
                 {
-                    case AbilityType.Normal:
-                        normal.abilityInfo.SetAbility(currentCard.GetAbility(s));
-                        normal.SetOpen(true);
-                        break;
-                    case AbilityType.Hold:
-                        hold.abilityInfo.SetAbility(currentCard.GetAbility(s));
-                        hold.SetOpen(true);
-                        break;
-                    case AbilityType.Ult:
-                        ult.abilityInfo.SetAbility(currentCard.GetAbility(s));
-                        ult.SetOpen(true);
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(s), s, null);
+                    if (abilityUIUnit.abilityInfo.abilityType == s)
+                    {
+                        abilityUIUnit.abilityInfo.SetAbility(currentCard.GetAbility(s));
+                        abilityUIUnit.SetOpen(true);
+                    }
                 }
             };
         }
@@ -88,10 +78,9 @@ namespace Main.AbilitiesInfo
         public void Close()
         {
             ui.SetActive(false);
-            normal.abilityInfo.OnSetDisable();
-            hold.abilityInfo.OnSetDisable();
-            ult.abilityInfo.OnSetDisable();
-            
+            foreach (var abilityUIUnit in abilities)
+                abilityUIUnit.abilityInfo.OnSetDisable();
+
             foreach (var item in items)
             {
                 item.gameObject.SetActive(false);

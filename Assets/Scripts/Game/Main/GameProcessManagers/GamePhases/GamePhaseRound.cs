@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using Main.Abilities;
 using Main.GameProcessManagers.GamePhases.RoundPhases;
+using Main.Players;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace Main.GameProcessManagers.GamePhases
@@ -23,6 +25,7 @@ namespace Main.GameProcessManagers.GamePhases
         [SerializeField] private TextMeshProUGUI moveText;
         [SerializeField] private RoundBtn roundBtn;
         [SerializeField] private List<RoundPhaseBase> roundPhases;
+        
         public bool IsPlayerNow => _currentPhaseType == RoundPhase.MovePlayer;
         
         public override GamePhase GamePhase => GamePhase.Round;
@@ -35,7 +38,7 @@ namespace Main.GameProcessManagers.GamePhases
             get => _currentPhaseType;
             private set
             {
-                if (_currentPhase != null && !_currentPhase.IsCompleted)
+                if (_currentPhase != null && !_currentPhase.IsCompleted || CurrentPhase == RoundPhase.Undefined)
                     return;
                 
                 var phase = roundPhases.Find(s => s.RoundPhase == value);
@@ -49,10 +52,8 @@ namespace Main.GameProcessManagers.GamePhases
                 _currentPhaseType = value;
                 
                 _currentPhase = phase;
-                _currentPhase.StartPhase();
-                
-                Debug.Log(CurrentPhase);
-                SetMove();
+
+                SetMove(() => { _currentPhase.StartPhase();});
 
                 if (CurrentPhase == RoundPhase.MoveEnemy || CurrentPhase == RoundPhase.Final)
                     roundBtn.SetEndRoundBtn(false);
@@ -64,10 +65,11 @@ namespace Main.GameProcessManagers.GamePhases
         [Inject] private AbilitiesUIManager _abilitiesUIManager;
         [Inject] private CurrentPhaseShower _currentPhaseShower;
         [Inject] private MoveManager _moveManager;
-        
+        [Inject] private BattleCardManager _battleCardManager;
+        [Inject] private Player _player;
         
         public bool playerEndPlay;
-        public bool isPlayerNext;
+        public bool isPlayerFirstPlay;
         public bool someOneEndRound;
 
         public bool CanEndRound => !someOneEndRound && (CurrentPhase != RoundPhase.Final);
@@ -82,33 +84,44 @@ namespace Main.GameProcessManagers.GamePhases
         public override void OnEnd()
         {
             roundBtn.End();
-           
         }
 
         public void PreInit()
         {
-            
+            _battleCardManager.OnNewCardEvent += s =>
+            {
+                //Debug.Log(s.IsEnemy);
+                s.BattleCardAttack.OnAttackEvent += () =>
+                {
+                    //Debug.Log("Attack Enemy:" + s.IsEnemy);
+                    _currentPhase.SetComplited();
+                    CurrentPhase = !s.IsEnemy ? RoundPhase.MoveEnemy : RoundPhase.MovePlayer;
+                };
+            };
             foreach (var roundPhase in roundPhases)
             {
                 roundPhase.OnCompletedEvent += () =>
                 {
-                    CurrentPhase = roundPhase.NextPhase;
+                    //CurrentPhase = roundPhase.NextPhase;
                 };
             }
         }
 
-        private void SetMove()
+        private void SetMove(Action onEnd)
         {
             moveText.text = IsPlayerNow ? "Ваш ход" : "Ход противника";
             _currentPhaseShower.Set(moveText.text, () =>
             {
                 _abilitiesUIManager.SetCanAttack(IsPlayerNow);
+                onEnd?.Invoke();
             });
         }
         
-        public void EndRoundPlayer()
+        public void EndRoundPlayer(bool firstRound)
         {
-            _currentPhaseShower.Set("Вы начинаете", () =>
+            _player.isStartFirstInNextRound = firstRound;
+            var startYou = firstRound ? ". Вы начинаете" : "";
+            _currentPhaseShower.Set("Вы закончили раунд" + startYou, () =>
             {
                 _currentPhase.SetComplited();
                 CurrentPhase = RoundPhase.MoveEnemy;

@@ -1,4 +1,3 @@
-using System;
 using Main.BattleCardSpace;
 using Main.Crystalls;
 using Main.Misc;

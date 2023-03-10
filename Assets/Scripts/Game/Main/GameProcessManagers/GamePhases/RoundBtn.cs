@@ -28,8 +28,8 @@ namespace Main.GameProcessManagers.GamePhases
                 if (!_round.playerEndPlay)
                 {
                     _round.playerEndPlay = true;
-                    if (!_round.someOneEndRound)
-                        _round.EndRoundPlayer();
+                    _round.isPlayerFirstPlay = !_round.someOneEndRound;
+                    _round.EndRoundPlayer(_round.isPlayerFirstPlay);
                 }
             });
             openBtn.onClick.AddListener(() =>

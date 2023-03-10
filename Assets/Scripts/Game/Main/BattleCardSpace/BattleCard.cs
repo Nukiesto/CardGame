@@ -53,6 +53,7 @@ namespace Main.BattleCardSpace
         private readonly List<ItemBase> _items = new();
         public ItemBase[] Items => _items.ToArray();
         public BattleCardAttack BattleCardAttack => battleCardAttack;
+        public BattleCardAbility SelectedAbility { get; set; }
         
         private void Start()
         {
@@ -85,7 +86,7 @@ namespace Main.BattleCardSpace
         {
             return abilities.Find(s => s.AbilityType == type);
         }
-
+        
         [Button]
         public void TestAddEnergy()
         {

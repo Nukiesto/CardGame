@@ -2,6 +2,7 @@ namespace Main.Other
 {
     public enum CrystallType
     {
+        Undefined = default,
         Purple = 0,
         Red = 1,
         Yellow = 2,
