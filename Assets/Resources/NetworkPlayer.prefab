@@ -67,3 +67,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b47d3516e1234ea9b69758faf79781ba, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  isEndRound: 0
+  isStartFirst: 0

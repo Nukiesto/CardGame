@@ -1,6 +1,5 @@
-using System;
-using ExitGames.Client.Photon;
 using Main;
+using Network.Consts;
 using Network.Panels;
 using Photon.Pun;
 using Photon.Realtime;
@@ -35,7 +34,9 @@ namespace Network
 
         public void Init()
         {
+#if UNITY_EDITOR
             ConnectToServer();
+#endif
         }
         private void ConnectToServer()
         {
@@ -52,9 +53,11 @@ namespace Network
             PlayerPropConst.AddIsNot(PlayerPropConst.PlayerDataKey, playerData);
                 
             PhotonNetwork.LocalPlayer.NickName = playerData.nickname;
+            
+#if UNITY_EDITOR
             if (InstanceManager.InstanceManager.isSecondaryInstance)
                 PhotonNetwork.LocalPlayer.NickName = "SecondaryPlayer";
-                
+#endif
             PhotonNetwork.ConnectUsingSettings();
         }
         public override void OnDisconnected(DisconnectCause cause)

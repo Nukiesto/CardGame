@@ -49,6 +49,9 @@ namespace Main
             
             foreach (var battleCard in battleCards)
                 battleCard.SetSelected(false);
+
+            foreach (var battleCard in EnemyCards)
+                battleCard.IsEnemy = true;
         }
 
         public void SetMyCurrentCard(int set)

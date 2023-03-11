@@ -1,7 +1,7 @@
 using Photon.Pun;
 using UnityEngine;
 
-namespace Network
+namespace Network.Consts
 {
     public static class PlayerPropConst
     {

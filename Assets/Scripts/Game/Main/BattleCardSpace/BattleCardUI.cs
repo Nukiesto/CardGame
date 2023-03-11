@@ -24,7 +24,7 @@ namespace Main.BattleCardSpace
         [SerializeField] private Color disableColorEnergy;
         
         private BattleCard _battleCard;
-        public bool IsEnemy { get; private set; }
+        public bool IsEnemy => _battleCard.IsEnemy;
         
         private void Awake()
         {
@@ -34,11 +34,7 @@ namespace Main.BattleCardSpace
                 hpCounterTxt.text = _battleCard.CurrentHp.ToString();
             };
         }
-
-        public void Init(bool isEnemy)
-        {
-            IsEnemy = isEnemy;
-        }
+        
         public void AddEffect()
         {
             

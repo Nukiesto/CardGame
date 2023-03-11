@@ -1,3 +1,4 @@
+using Network;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace Main.GameProcessManagers.GamePhases
         [SerializeField] private Button endRoundBtn;
 
         [Inject] private GamePhaseRound _round;
+        [Inject] private GameNetworkManager _gameNetworkManager;
         
         private bool _isOpenedEndBtn;
         
@@ -23,27 +25,25 @@ namespace Main.GameProcessManagers.GamePhases
 
         public void PreInit()
         {
-            endRoundBtn.onClick.AddListener(() =>
+            _gameNetworkManager.OnStartGameEvent += () =>
             {
-                if (!_round.playerEndPlay)
+                endRoundBtn.onClick.AddListener(() =>
                 {
-                    _round.playerEndPlay = true;
-                    _round.isPlayerFirstPlay = !_round.someOneEndRound;
-                    _round.EndRoundPlayer(_round.isPlayerFirstPlay);
-                }
-            });
-            openBtn.onClick.AddListener(() =>
-            {
-                if (_round.CurrentPhase == RoundPhase.MovePlayer && !_round.playerEndPlay)
-                    SetEndRoundBtn(!_isOpenedEndBtn);
-            });
+                    _gameNetworkManager.CurrentPlayer.EndRoundBtnClick();
+                });
+                openBtn.onClick.AddListener(() =>
+                {
+                    if (_round.CurrentPhase == RoundPhase.MovePlayer && !_gameNetworkManager.CurrentPlayer.IsEndRound)
+                        SetEndRoundBtn(!_isOpenedEndBtn);
+                });
+            };
         }
         
         public void SetEndRoundBtn(bool open)
         {
             _isOpenedEndBtn = open;
             endRoundBtn.gameObject.SetActive(open);
-            textFirstMove.gameObject.SetActive(_round.CanEndRound && open && !_round.someOneEndRound);
+            textFirstMove.gameObject.SetActive(_round.CanEndRound && open && !_round.SomeOneEndRound);
         }
     }
 }

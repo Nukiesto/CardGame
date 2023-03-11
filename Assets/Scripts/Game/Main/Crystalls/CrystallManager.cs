@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using InspectorUtils.Runtime;
@@ -22,6 +23,7 @@ namespace Main.Crystalls
         [SerializeField] private List<CrystallType> _crystalls = new();
 
         private PoolMassive _crystallsUI;
+        public event Action<int> OnCrystallCountUpdate;
         
         public void PreInit()
         {
@@ -34,6 +36,7 @@ namespace Main.Crystalls
                 Debug.LogError("CannotSet:" + type);
             _crystalls.Add(type);
             UpdateUI();
+            OnCrystallCountUpdate?.Invoke(_crystalls.Count);
         }
 
         public void RemoveCrystall(CrystallType type)
@@ -54,6 +57,7 @@ namespace Main.Crystalls
             if (_crystalls.Contains(type))
                 _crystalls.Remove(type);
             UpdateUI();
+            OnCrystallCountUpdate?.Invoke(_crystalls.Count);
         }
         
         public int GetCountCrystall(CrystallType type)

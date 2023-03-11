@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Main.Abilities;
 using Main.GameProcessManagers.GamePhases.RoundPhases;
-using Main.Players;
+using Network;
+using Photon.Pun;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
 using TMPro;
 using UnityEngine;
-using UnityEngine.Serialization;
-using UnityEngine.UI;
 
 namespace Main.GameProcessManagers.GamePhases
 {
@@ -32,53 +32,40 @@ namespace Main.GameProcessManagers.GamePhases
         public override GamePhase NextPhase => GamePhase.CrystallGet;
 
         [SerializeField] private RoundPhase _currentPhaseType;
-        
         public RoundPhase CurrentPhase
         {
             get => _currentPhaseType;
-            private set
-            {
-                if (_currentPhase != null && !_currentPhase.IsCompleted || CurrentPhase == RoundPhase.Undefined)
-                    return;
-                
-                var phase = roundPhases.Find(s => s.RoundPhase == value);
-                if (phase == null)
-                {
-                    IsCompleted = true;
-                    return;
-                }
-                if (_currentPhase != null && _currentPhase.IsCompleted)
-                    _currentPhase.OnEnd();
-                _currentPhaseType = value;
-                
-                _currentPhase = phase;
-
-                SetMove(() => { _currentPhase.StartPhase();});
-
-                if (CurrentPhase == RoundPhase.MoveEnemy || CurrentPhase == RoundPhase.Final)
-                    roundBtn.SetEndRoundBtn(false);
-            }
         }
-        
+
         private RoundPhaseBase _currentPhase;
         
         [Inject] private AbilitiesUIManager _abilitiesUIManager;
         [Inject] private CurrentPhaseShower _currentPhaseShower;
-        [Inject] private MoveManager _moveManager;
         [Inject] private BattleCardManager _battleCardManager;
-        [Inject] private Player _player;
+        [Inject] private GameNetworkManager _gameNetworkManager;
         
-        public bool playerEndPlay;
-        public bool isPlayerFirstPlay;
-        public bool someOneEndRound;
+        public bool SomeOneEndRound => _gameNetworkManager.players.Count(s => s.IsEndRound) > 0;
 
-        public bool CanEndRound => !someOneEndRound && (CurrentPhase != RoundPhase.Final);
-        
-        public event Action SomeEndRoundEvent;
+        public bool CanEndRound => !SomeOneEndRound && (CurrentPhase != RoundPhase.Final);
         
         protected override void OnStart()
         {
-            CurrentPhase = true ? RoundPhase.MovePlayer : RoundPhase.MoveEnemy;
+            if (PhotonNetwork.IsMasterClient)
+            {
+                foreach (var networkPlayer in _gameNetworkManager.players)
+                {
+                    var isStart = networkPlayer.IsFirstStart;
+                    networkPlayer.Clear();
+                    if (isStart)
+                    {
+                        Debug.Log("FirstMoveBy: " + networkPlayer.photonView.ViewID);
+                        networkPlayer.SetMove();
+                    }
+                }
+            }
+
+            foreach (var networkPlayer in _gameNetworkManager.players)
+                networkPlayer.OnStartNewRound();
         }
 
         public override void OnEnd()
@@ -90,21 +77,36 @@ namespace Main.GameProcessManagers.GamePhases
         {
             _battleCardManager.OnNewCardEvent += s =>
             {
-                //Debug.Log(s.IsEnemy);
-                s.BattleCardAttack.OnAttackEvent += () =>
+                if (PhotonNetwork.IsMasterClient)
                 {
-                    //Debug.Log("Attack Enemy:" + s.IsEnemy);
-                    _currentPhase.SetComplited();
-                    CurrentPhase = !s.IsEnemy ? RoundPhase.MoveEnemy : RoundPhase.MovePlayer;
-                };
+                    s.BattleCardAttack.OnAttackEvent += () =>
+                    {
+                        var isEnemy = CurrentPhase == RoundPhase.MoveEnemy && s.IsEnemy;
+                        Debug.Log($"ATTACK IS ENEMY: {isEnemy}");
+                        _currentPhase.SetComplited();
+                        Debug.Log($"CheckFinalPhase {CheckFinalPhase() || _gameNetworkManager.CurrentPlayer.IsEndRound}");
+                        if (CheckFinalPhase())
+                            SetFinalPhase();
+                        else
+                        {
+                            if (isEnemy)
+                            {
+                                if (!_gameNetworkManager.CurrentPlayer.IsEndRound)
+                                    _gameNetworkManager.CurrentPlayer.SetMove();
+                                else
+                                    _gameNetworkManager.OtherPlayer.SetMove();
+                            }
+                            else
+                            {
+                                if (!_gameNetworkManager.OtherPlayer.IsEndRound)
+                                    _gameNetworkManager.OtherPlayer.SetMove();
+                                else
+                                    _gameNetworkManager.CurrentPlayer.SetMove();
+                            }
+                        }
+                    };
+                }
             };
-            foreach (var roundPhase in roundPhases)
-            {
-                roundPhase.OnCompletedEvent += () =>
-                {
-                    //CurrentPhase = roundPhase.NextPhase;
-                };
-            }
         }
 
         private void SetMove(Action onEnd)
@@ -117,18 +119,85 @@ namespace Main.GameProcessManagers.GamePhases
             });
         }
         
-        public void EndRoundPlayer(bool firstRound)
+        public void EndRoundPlayer(bool firstRound, bool isMine)
         {
-            _player.isStartFirstInNextRound = firstRound;
             var startYou = firstRound ? ". Вы начинаете" : "";
-            _currentPhaseShower.Set("Вы закончили раунд" + startYou, () =>
+            var textLeft = isMine ? "Вы закончили раунд" : "Противник закончил раунд";
+            _currentPhaseShower.Set(textLeft + startYou, () =>
             {
                 _currentPhase.SetComplited();
-                CurrentPhase = RoundPhase.MoveEnemy;
+                
+                if (PhotonNetwork.IsMasterClient)
+                {
+                    if (CheckFinalPhase())
+                        SetFinalPhase();
+                    Debug.Log("SET MOVE OTHER PLAYER");
+                    if (!_gameNetworkManager.CurrentPlayer.IsEndRound)
+                        _gameNetworkManager.CurrentPlayer.SetMove();
+                    else if (!_gameNetworkManager.OtherPlayer.IsEndRound)
+                        _gameNetworkManager.OtherPlayer.SetMove();
+                }
             });
-            someOneEndRound = true;
             roundBtn.SetEndRoundBtn(false);
-            SomeEndRoundEvent?.Invoke();
+        }
+
+        private bool CheckFinalPhase()
+        {
+            return _gameNetworkManager.players.All(s => s.IsEndRound);
+        }
+
+        public void SetFinalPhase()
+        {
+            SetPhase(RoundPhase.Final, 0);
+            //Debug.Log($"FINAL PHASE, is first start {_gameNetworkManager.players.Find(s=>s.IsFirstStart).photonView.ViewID}");
+        }
+
+        public void FinalPhaseEnd()
+        {
+            IsCompleted = true;
+        }
+        
+        [PunRPC]
+        private void SetPhaseRPC(RoundPhase roundPhase, int sender)
+        {
+            if (roundPhase == RoundPhase.MovePlayer || roundPhase == RoundPhase.MoveEnemy)
+            {
+                var isPlayer = _gameNetworkManager.CurrentPlayer.photonView.ViewID == sender;
+                roundPhase = isPlayer ? RoundPhase.MovePlayer : RoundPhase.MoveEnemy;
+            }
+            
+            Debug.Log($"SetPhase {roundPhase}");
+            var phase = roundPhases.Find(s => s.RoundPhase == roundPhase);
+            if (PhotonNetwork.IsMasterClient)
+            {
+                if (phase == null)
+                {
+                    IsCompleted = true;
+                    return;
+                }
+            }
+            
+            if (_currentPhase != null)
+                _currentPhase.OnEnd();
+            
+            //SetPhase
+            _currentPhaseType = roundPhase;
+            _currentPhase = phase;
+            
+            SetMove(() =>
+            {
+                _currentPhase.StartPhase();
+            });
+
+            if (CurrentPhase == RoundPhase.MoveEnemy || CurrentPhase == RoundPhase.Final)
+                roundBtn.SetEndRoundBtn(false);
+        }
+
+        public void SetPhase(RoundPhase roundPhase, int sender)
+        {
+            if (_currentPhase != null && !_currentPhase.IsCompleted)
+                return;
+            photonView.RPC(nameof(SetPhaseRPC), RpcTarget.All, roundPhase, sender);
         }
     }
 }

@@ -641,7 +641,7 @@ public static class NativeGallery
 		return result;
 	}
 
-	private static byte[] GetTextureBytes( Texture2D texture, bool isJpeg )
+	public static byte[] GetTextureBytes( Texture2D texture, bool isJpeg )
 	{
 		try
 		{
@@ -739,7 +739,6 @@ public static class NativeGallery
 	#region Utility Functions
 	public static Texture2D LoadImageAtPath( string imagePath,
 		out byte[] bytes,
-		out string path,
 		int maxSize = -1, 
 		bool markTextureNonReadable = true, 
 		bool generateMipmaps = true, 
@@ -761,7 +760,6 @@ public static class NativeGallery
 #else
 		string loadPath = imagePath;
 #endif
-		path = loadPath;
 		
 		string extension = Path.GetExtension( imagePath ).ToLowerInvariant();
 		TextureFormat format = ( extension == ".jpg" || extension == ".jpeg" ) ? TextureFormat.RGB24 : TextureFormat.RGBA32;
@@ -939,7 +937,7 @@ public static class NativeGallery
 #endif
 
 		if( !string.IsNullOrEmpty( thumbnailPath ) )
-			return LoadImageAtPath( thumbnailPath, out var bytes, out var path, maxSize, markTextureNonReadable, generateMipmaps, linearColorSpace );
+			return LoadImageAtPath( thumbnailPath, out var bytes, maxSize, markTextureNonReadable, generateMipmaps, linearColorSpace );
 		else
 			return null;
 	}

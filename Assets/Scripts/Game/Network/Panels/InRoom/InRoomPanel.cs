@@ -1,5 +1,6 @@
 using ExitGames.Client.Photon;
 using Main;
+using Network.Consts;
 using Photon.Pun;
 using Photon.Realtime;
 using SurvDI.Application.Interfaces;

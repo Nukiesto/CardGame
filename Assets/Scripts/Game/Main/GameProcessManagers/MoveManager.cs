@@ -1,7 +1,7 @@
-using System;
 using System.Collections.Generic;
 using Main.GameProcessManagers.GamePhases;
-using Main.Players;
+using Network;
+using Photon.Pun;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
 using UnityEngine;
@@ -17,16 +17,11 @@ namespace Main.GameProcessManagers
     }
     
     [Bind]
-    public class MoveManager : MonoBehaviour, IPreInit, IInit
+    public class MoveManager : MonoBehaviourPun, IPreInit
     {
         [SerializeField] private List<GamePhaseBase> gamePhases;
-        [SerializeField] private PlayerBase[] players;
-        
-        [Header("Other")]
-        [SerializeField] private bool firstPlayer;
 
         private GamePhase _currentPhaseType;
-        
         public GamePhase CurrentPhase
         {
             get => _currentPhaseType;
@@ -34,18 +29,13 @@ namespace Main.GameProcessManagers
             {
                 if (_currentPhase != null && !_currentPhase.IsCompleted)
                     return;
-                var phase = gamePhases.Find(s => s.GamePhase == value);
-                
-                if (_currentPhase != null && _currentPhase.IsCompleted)
-                    _currentPhase.OnEnd();
-                    
-                _currentPhase = phase;
-                _currentPhase.StartPhase();
+                photonView.RPC(nameof(SetPhaseRPC), RpcTarget.All, value);
             } 
         }
 
         private GamePhaseBase _currentPhase;
 
+        [Inject] private GameNetworkManager _gameNetworkManager;
         
         //Game Phases
         //-Choose cards
@@ -54,23 +44,32 @@ namespace Main.GameProcessManagers
         //-Round
         public void PreInit()
         {
-            foreach (var player in players)
+            if (photonView.IsMine)
             {
-                
-            }
-            
-            foreach (var gamePhase in gamePhases)
-            {
-                gamePhase.OnCompletedEvent += () =>
+                _gameNetworkManager.OnStartGameEvent += () =>
                 {
-                    CurrentPhase = gamePhase.NextPhase;
+                    CurrentPhase = GamePhase.ChooseCards;
                 };
+                foreach (var gamePhase in gamePhases)
+                {
+                    gamePhase.OnCompletedEvent += () =>
+                    {
+                        CurrentPhase = gamePhase.NextPhase;
+                    };
+                }
             }
         }
-        public void Init()
+        
+        [PunRPC]
+        private void SetPhaseRPC(GamePhase gamePhase)
         {
-            CurrentPhase = GamePhase.ChooseCards;
+            var phase = gamePhases.Find(s => s.GamePhase == gamePhase);
+                
+            if (_currentPhase != null && _currentPhase.IsCompleted)
+                _currentPhase.OnEnd();
+            
+            _currentPhase = phase;
+            _currentPhase.StartPhase();
         }
-
     }
 }

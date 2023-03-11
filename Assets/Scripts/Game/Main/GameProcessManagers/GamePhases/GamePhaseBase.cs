@@ -1,9 +1,10 @@
 using System;
+using Photon.Pun;
 using UnityEngine;
 
 namespace Main.GameProcessManagers.GamePhases
 {
-    public abstract class GamePhaseBase : MonoBehaviour
+    public abstract class GamePhaseBase : MonoBehaviourPun
     {
         public event Action OnCompletedEvent;
         public abstract GamePhase GamePhase { get; }

@@ -3,13 +3,13 @@ using System.Diagnostics.CodeAnalysis;
 using ExitGames.Client.Photon;
 using Main;
 using Main.BattleCardSpace;
-using Main.Players;
+using Main.GameProcessManagers.GamePhases;
 using Photon.Pun;
 using Photon.Realtime;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
 using SurvDI.UnityIntegration;
-using Player = Main.Players.Player;
+using UnityEngine;
 
 namespace Network
 {
@@ -21,37 +21,42 @@ namespace Network
     }
     [Bind(Multy=true)]
     [SuppressMessage("ReSharper", "SwitchStatementHandlesSomeKnownEnumValuesWithDefault")]
-    public class NetworkPlayer : MonoBehaviourPun, IPreInit, IInit, IOnEventCallback
+    public class NetworkPlayer : MonoBehaviourPun, IPreInit
     {
-        private PlayerBase _player;
-        
-        [Inject] private Player _playerGet;
-        [Inject] private Enemy _enemyGet; 
         [Inject] private BattleCardManager _battleCardManager;
-
+        [Inject] private GamePhaseRound _gamePhaseRound;
+        [Inject] private GameNetworkManager _gameNetworkManager;
+        
         private BattleCard CurrentCard => photonView.IsMine ? _battleCardManager.MyCurrentCard : _battleCardManager.EnemyCurrentCard;
+        private NetworkPlayer OtherPlayer => _gameNetworkManager.OtherPlayer;
 
+        public bool isEndRound;
+        public bool isStartFirst;
+
+        public bool IsEndRound
+        {
+            get => isEndRound;
+            private set => isEndRound = value;
+        }
+        public bool IsFirstStart
+        {
+            get => isStartFirst;
+            private set => isStartFirst = value;
+        }
+        
         private void Awake()
         {
             DiController.InjectGameObject(gameObject);
         }
-
         public void PreInit()
         {
-            PhotonNetwork.AddCallbackTarget(this);
-        }
-        public void Init()
-        {
-            if (photonView.IsMine)
-                _player = _playerGet;
-            else
-                _player = _enemyGet;
-
+            _gameNetworkManager.AddPlayer(this);
             SetSelectedCard(0);
         }
-        private void OnDestroy()
+
+        public void OnStartNewRound()
         {
-            PhotonNetwork.RemoveCallbackTarget(this);
+           Clear();
         }
         
         public void SetSelectedCard(int card)
@@ -64,11 +69,29 @@ namespace Network
             photonView.RPC(nameof(AttackRPC), RpcTarget.All, abilityType);
             //RaiseEvent(Events.Attack, abilityType);
         }
-        public void EndRound()
+        public void SetMove()
         {
-            
+            Debug.Log($"SEND RPC <color={(photonView.IsMine ? "green" : "red")}>{photonView.ViewID}</color>");
+            photonView.RPC(nameof(SetMoveRPC), RpcTarget.All);
+        }
+        public void EndRoundBtnClick()
+        {
+            photonView.RPC(nameof(EndRoundBtnClickRPC), RpcTarget.All);
+        }
+        public void FinalPhaseRound()
+        {
+            photonView.RPC(nameof(EndRoundBtnClickRPC), RpcTarget.All);
+        }
+
+        public void Clear()
+        {
+            photonView.RPC(nameof(ClearRPC), RpcTarget.All);
         }
         
+        public void SetFirstStart(bool set)
+        {
+            photonView.RPC(nameof(SetFirstStartRPC), RpcTarget.All, set);
+        }
         [PunRPC]
         private void AttackRPC(AbilityType abilityType)
         {
@@ -82,30 +105,50 @@ namespace Network
             else
                 _battleCardManager.SetEnemyCurrentCard(set);
         }
-
-        private void RaiseEvent(Events events, object obj)
+        [PunRPC]
+        private void SetMoveRPC()
         {
-            return;
-            PhotonNetwork.RaiseEvent((byte)events, new NetPlayerEventData{data = obj,target = photonView.ViewID}, new RaiseEventOptions { Receivers = ReceiverGroup.All}, SendOptions.SendReliable);
-        }
-        public void OnEvent(EventData photonEvent)
-        {
-            return;
-            if (photonEvent.CustomData is NetPlayerEventData eventData)
+            if (!IsEndRound)
             {
-                if (eventData.target != photonView.ViewID)
-                    return;
-                var data = eventData.data;
-                switch ((Events)photonEvent.Code)
+                if (PhotonNetwork.IsMasterClient)
                 {
-                    case Events.Attack:
-                        AttackRPC((AbilityType)data);
-                        break;
-                    case Events.SetSelected:
-                        SetSelectedCardRPC((int)data);
-                        break;
+                    Debug.Log($"SetMovePlayer: <color={(photonView.IsMine ? "green" : "red")}>{photonView.ViewID}</color>");
+                    _gamePhaseRound.SetPhase(photonView.IsMine ? RoundPhase.MovePlayer : RoundPhase.MoveEnemy, photonView.ViewID);
+            
                 }
             }
+            else
+                Debug.LogError("Cannot set move, is endround");
+        }
+        [PunRPC]
+        private void EndRoundBtnClickRPC()
+        {
+            if (!IsEndRound)
+            {
+                SetFirstStart(!_gamePhaseRound.SomeOneEndRound);
+                IsEndRound = true;
+                
+                _gamePhaseRound.EndRoundPlayer(!_gamePhaseRound.SomeOneEndRound, photonView.IsMine);
+            }
+            
+            Debug.Log($"<color=red>END ROUND</color> {photonView.ViewID}");
+        }
+        [PunRPC]
+        private void SetFirstStartRPC(bool setValue)
+        {
+            Debug.Log($"SET FIRST START {setValue} <color={(photonView.IsMine ? "green" : "red")}>{photonView.ViewID}</color>");
+            IsFirstStart = setValue;
+        }
+        [PunRPC]
+        private void FinalPhaseRPC()
+        {
+            Debug.Log($"<color=red>FinalPhase</color> {photonView.ViewID}");
+        }
+        [PunRPC]
+        public void ClearRPC()
+        {
+            IsEndRound = false;
+            IsFirstStart = false;
         }
     }
 }

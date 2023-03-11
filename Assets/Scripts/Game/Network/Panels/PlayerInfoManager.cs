@@ -1,7 +1,4 @@
 using System;
-using System.Drawing;
-using System.Drawing.Drawing2D;
-using System.Drawing.Imaging;
 using Main;
 using SurvDI.Application.Interfaces;
 using SurvDI.Core.Common;
@@ -10,8 +7,6 @@ using UI;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using WebSocketSharp;
-using Image = UnityEngine.UI.Image;
 
 namespace Network.Panels
 {
@@ -70,10 +65,10 @@ namespace Network.Panels
                 {
                     if (string.IsNullOrEmpty(path))
                         return;
-                    var texture = NativeGallery.LoadImageAtPath(path, out var bytes, out var imagePath);
-                    
+                    var texture = NativeGallery.LoadImageAtPath(path, out var bytes, -1, false);
+
                     if (maxSizeAvatarBytes < bytes.Length)
-                        bytes = ResizeToDestination(imagePath, maxSizeAvatarBytes, out var success);
+                        bytes = ResizeToDestination(texture, maxSizeAvatarBytes, out var success);
 
                     var avatarData = new AvatarData(texture.format, bytes);
                     
@@ -86,7 +81,7 @@ namespace Network.Panels
             
             saveBtn.onClick.AddListener(() =>
             {
-                if (nickEnter.text.IsNullOrEmpty())
+                if (string.IsNullOrEmpty(nickEnter.text))
                 {
                     ErrorName();
                     return;
@@ -120,16 +115,19 @@ namespace Network.Panels
         }
         public static Sprite GetSprite(AvatarData avatarData)
         {
+            if (avatarData == null)
+                return null;
+            
             var avatar = GetTexture(avatarData.format, avatarData.colors);
             
             var sprite = Sprite.Create(avatar, new Rect(0f, 0f, avatar.width, avatar.height), Vector2.one/2f);
             return sprite;
         }
 
-        private static byte[] ResizeToDestination(string path, int destination, out bool success)
+        private static byte[] ResizeToDestination(Texture2D texture2D, int destination, out bool success)
         {
             var size = 256;
-            var image = Resize(path, size, size);
+            var image = Resize(texture2D, size, size);
             while (image.Length > destination)
             {
                 size -= 64;
@@ -139,39 +137,15 @@ namespace Network.Panels
                     return image;
                 }
                     
-                image = Resize(path, size, size);
+                image = Resize(texture2D, size, size);
             }
             success = image.Length < destination;
             return image;
         }
-        private static byte[] Resize(string path, int width, int height)
+        private static byte[] Resize(Texture2D texture2D, int width, int height)
         {
-            var image = (System.Drawing.Image)ResizeImage(System.Drawing.Image.FromFile(path), width, height);
-            var imageConverter = new ImageConverter();
-            return (byte[])imageConverter.ConvertTo(image, typeof(byte[]));
-        }
-        
-        public static Bitmap ResizeImage(System.Drawing.Image image, int width, int height)
-        {
-            var destRect = new Rectangle(0, 0, width, height);
-            var destImage = new Bitmap(width, height);
-
-            destImage.SetResolution(image.HorizontalResolution, image.VerticalResolution);
-
-            using var graphics = System.Drawing.Graphics.FromImage(destImage);
-            
-            graphics.CompositingMode = CompositingMode.SourceCopy;
-            graphics.CompositingQuality = CompositingQuality.HighQuality;
-            graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            graphics.SmoothingMode = SmoothingMode.HighQuality;
-            graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-            using var wrapMode = new ImageAttributes();
-            
-            wrapMode.SetWrapMode(System.Drawing.Drawing2D.WrapMode.TileFlipXY);
-            graphics.DrawImage(image, destRect, 0, 0, image.Width,image.Height, GraphicsUnit.Pixel, wrapMode);
-
-            return destImage;
+            var scaled = CropScale.ScaleTexture(texture2D, width, height);
+            return NativeGallery.GetTextureBytes(scaled, false);
         }
     }
 }

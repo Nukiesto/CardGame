@@ -34,13 +34,21 @@ MonoBehaviour:
   RunInBackground: 1
   StartInOfflineMode: 0
   RpcList:
+  - AttackRPC
   - ClickRpc
   - DestroyRpc
   - DestroySpaceship
   - Fire
   - RespawnSpaceship
-  - AttackRPC
+  - SetMoveRPC
   - SetSelectedCardRPC
+  - EndRoundRPC
+  - FinalPhaseRPC
+  - EndRoundBtnClickRPC
+  - SetFirstStartRPC
+  - ClearRPC
+  - SetPhaseRPC
+  - SetCountRPC
   DisableAutoOpenWizard: 1
   ShowSettings: 1
   DevRegionSetOnce: 1

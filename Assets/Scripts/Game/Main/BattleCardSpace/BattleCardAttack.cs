@@ -1,7 +1,8 @@
 using System;
-using System.Collections;
 using DG.Tweening;
 using Main.Abilities;
+using Main.AbilitiesInfo;
+using Main.CardInfo;
 using Main.Crystalls;
 using Main.GameProcessManagers;
 using Network;
@@ -13,19 +14,19 @@ using UnityEngine;
 namespace Main.BattleCardSpace
 {
     [Bind(Multy = true)]
-    public class BattleCardAttack : MonoBehaviour, IPreInit, ITickable, IInit
+    public class BattleCardAttack : MonoBehaviour, IPreInit
     {
         [SerializeField] private BattleCard battleCard;
         [SerializeField] private GameObject attackEffect;
         [SerializeField] private float time;
 
         [Inject] private AbilitiesUIManager _abilitiesUIManager;
+        [Inject] private AbilitiesInfoUI _abilitiesInfoUI;
         [Inject] private BattleCardManager _battleCardManager;
-        [Inject] private MoveManager _moveManager;
+        [Inject] private CardInfoManager _cardInfoManager;
         [Inject] private CrystallManager _crystallManager;
         [Inject] private GameNetworkManager _gameNetworkManager;
         
-        private CoRoutine _waitAttack;
         private bool _oneClick;
 
         public event Action OnAttackEvent;
@@ -36,17 +37,7 @@ namespace Main.BattleCardSpace
                 return;
             _abilitiesUIManager.OnClickAbilityEvent += s => { _oneClick = !_oneClick; };
         }
-        public void Init()
-        {
-            
-        }
         
-        public void Tick()
-        {
-            if (_waitAttack is { IsDone: false })
-                _waitAttack.Pump();
-        }
-     
         public void Attack()
         {
             if (!_oneClick && !battleCard.IsEnemy)
@@ -66,18 +57,20 @@ namespace Main.BattleCardSpace
 
         public void AttackAbility(AbilityType ability)
         {
+            var myCard = !battleCard.IsEnemy ? _battleCardManager.MyCurrentCard : _battleCardManager.EnemyCurrentCard;
             var enemy = battleCard.IsEnemy ? _battleCardManager.MyCurrentCard : _battleCardManager.EnemyCurrentCard;
-
+            
             attackEffect.SetActive(true);
             attackEffect.transform.localPosition = Vector3.zero;
-            Debug.Log("Shot Enemy:" + battleCard.IsEnemy);
-          
+
             attackEffect.transform
                 .DOMove(enemy.transform.position, time)
                 .SetEase(Ease.OutQuad)
                 .OnKill(() =>
                 {
-                    Debug.Log("Попал");
+                    enemy.CurrentHp -= myCard.GetAbility(ability).GetDamage();
+                    _abilitiesInfoUI.Close();
+                    _cardInfoManager.SetOpen(false);
                     attackEffect.SetActive(false);
                     OnAttackEvent?.Invoke();
                 });

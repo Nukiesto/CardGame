@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using ExitGames.Client.Photon;
 using Main;
+using Network.Consts;
 using Photon.Pun;
 using Photon.Realtime;
 using SurvDI.Application.Interfaces;
@@ -9,39 +11,45 @@ using SurvDI.UnityIntegration;
 using UI;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UsefulScripts.NetScripts;
 
 
 namespace Network
 {
     [Bind]
-    public class GameNetworkManager : MonoBehaviourPunCallbacks, IPreInit,IPostInit, IOnEventCallback
+    public class GameNetworkManager : MonoBehaviourPunCallbacks, IPreInit,IInit, IOnEventCallback
     {
         [SerializeField] private NetworkPlayer networkPlayerPrefab;
+        
         [Inject] private MessageManager _messageManager;
         
         public NetworkPlayer CurrentPlayer { get; private set; }
-        private bool _isCreatedPlayer;
+        public NetworkPlayer OtherPlayer { get; private set; }
         
-        public override void OnDisconnected(DisconnectCause cause)
-        {
-            _messageManager.ShowMessage(cause.ToString(), "<color=red>Вы отключены</color>", OnLeftRoom);
-        }
-        public override void OnLeftRoom()
-        {
-            SceneManager.LoadScene("Menu");
-        }
+        private bool _isCreatedPlayer;
+        public readonly List<NetworkPlayer> players = new();
+       
+        public event Action OnStartGameEvent;
+        
         public void PreInit()
         {
             PhotonNetwork.AddCallbackTarget(this);
+            OnStartGameEvent += () =>
+            {
+                if (PhotonNetwork.IsMasterClient)
+                {
+                    var randomPlayer = players.GetRandom();
+                    randomPlayer.SetFirstStart(true);
+                }
+                OtherPlayer = players.Find(s => !s.photonView.IsMine);
+            };
         }
-        private void OnDestroy()
+        public void Init()
         {
-            PhotonNetwork.RemoveCallbackTarget(this);
-        }
-
-        public void PostInit()
-        {
-            PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable{{PlayerPropConst.PlayerIsLoadSceneKey, true}});
+            PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable
+            {
+                {PlayerPropConst.PlayerIsLoadSceneKey, true}
+            });
         }
 
         public override void OnPlayerPropertiesUpdate(Player targetPlayer, Hashtable changedProps)
@@ -57,12 +65,13 @@ namespace Network
         {
             
         }
-
+        
         private void CreatePlayer()
         {
             var go = PhotonNetwork.Instantiate(networkPlayerPrefab.name, Vector3.zero, Quaternion.identity);
             CurrentPlayer = go.GetComponent<NetworkPlayer>();
         }
+        
         private static bool CheckAllPlayerLoadedLevel()
         {
             foreach (var p in PhotonNetwork.PlayerList)
@@ -79,6 +88,30 @@ namespace Network
             }
 
             return true;
+        }
+
+        public void AddPlayer(NetworkPlayer networkPlayer)
+        {
+            if (!players.Contains(networkPlayer))
+            {
+                players.Add(networkPlayer);
+                if (players.Count == PhotonNetwork.PlayerList.Length)
+                {
+                    OnStartGameEvent?.Invoke();
+                }
+            }
+        }
+        public override void OnDisconnected(DisconnectCause cause)
+        {
+            _messageManager.ShowMessage(cause.ToString(), "<color=red>Вы отключены</color>", OnLeftRoom);
+        }
+        public override void OnLeftRoom()
+        {
+            SceneManager.LoadScene("Menu");
+        }
+        private void OnDestroy()
+        {
+            PhotonNetwork.RemoveCallbackTarget(this);
         }
     }
 }

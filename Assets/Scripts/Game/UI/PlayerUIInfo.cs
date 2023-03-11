@@ -13,6 +13,7 @@ namespace UI
     {
         [SerializeField] private Image icon;
         [SerializeField] private TextMeshProUGUI text;
+        [SerializeField] private Sprite defaultSprite;
         
         [Inject] private PlayerInfoManager _playerInfoManager;
         
@@ -20,7 +21,9 @@ namespace UI
         {
             _playerInfoManager.OnPlayerDataUpdateEvent += s =>
             {
-                icon.sprite = PlayerInfoManager.GetSprite(s.avatar);
+                icon.sprite = defaultSprite;
+                if (s.avatar != null)
+                    icon.sprite = PlayerInfoManager.GetSprite(s.avatar);
                 text.text = s.nickname;
             };
         }
